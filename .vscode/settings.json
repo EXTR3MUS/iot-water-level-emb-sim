@@ -1,3 +1,7 @@
 {
-    "C_Cpp.default.compilerPath": "/usr/bin/gcc"
+    "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+    "files.associations": {
+        "pthread.h": "c",
+        "unistd.h": "c"
+    }
 }
