@@ -24,7 +24,7 @@ int main(){
     return 0;
 }
 
-// items 1 and 2
+// thread 1
 void* read_sensor(void *arg){
     srand(time(NULL)); // Seed the random number generator
 
@@ -36,6 +36,7 @@ void* read_sensor(void *arg){
     }
 }
 
+// thread 3
 void* send_data(void *arg){
     while(1){
         pthread_mutex_lock(&mutex1);
