@@ -40,6 +40,7 @@ void* read_sensor(void *arg){
     }
 }
 
+// thread 2
 void* save_data(void *arg){
     while(1){
         pthread_mutex_lock(&mutex1);
