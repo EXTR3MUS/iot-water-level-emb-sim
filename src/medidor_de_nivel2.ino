@@ -61,36 +61,17 @@ void loop() {
   }
   media = (media / 1000); //distancia em centimetros
 
-//  if (media > 70)
-//    media = 70;
-//  if (media < 10)
-//    media = 10;
-
-
-
   Serial.print("Distancia (cm):");
   Serial.println(media);
   float med = (media / 0.82) - 7.5;
   Serial.print("Distancia corrigida (cm):");
   Serial.println(med);
-  if (med > 40) {
-    a = (med - 40) / 30;
-    if (a > 1)
-      a = 1;
-  }
-  if (med <= 40) {
-    a = (40 - med) / 30;
-    if (a < 0) {
-      a = 0;
-    }
-  }
 
   int level = med;
   
   Measurement m;
   m.timestamp = time(NULL);
   m.level = level;
-  m.status = classifyStatus(level);
   
   lcd.clear();
   //Posiciona o cursor na coluna 0, linha 0;
@@ -103,17 +84,10 @@ void loop() {
   lcd.print("cm");
   lcd.setCursor(0, 1);
   //Envia o texto entre aspas para o LCD
-  lcd.print("Status: ");
-  lcd.setCursor(12, 1);
-  lcd.print(m.status);
   lcd.setCursor(0, 2);
-  lcd.print("Stat. sent: ");
+  lcd.print("Buffer Size: ");
   lcd.setCursor(12, 2);
-  lcd.print("Verde");
-  lcd.setCursor(0, 3);
-  lcd.print("Conn status: ");
-  lcd.setCursor(14, 3);
-  lcd.print("200");
+  lcd.print("100");
   delay(10);
   media = 0;
 }  //fim do loop
