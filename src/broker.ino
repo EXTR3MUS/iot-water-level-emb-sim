@@ -12,7 +12,7 @@ const int mqtt_port = 1883;
 const char* mqtt_user = "";
 const char* mqtt_pass = "";
 
-const char* publishTopic = "test/iot_water_level";
+const char* publishTopic = "esp32/test/hello_world_001";
 const char* clientID = "ESP32-Client-UniqueID-1234"; 
 
 long lastMsg = 0;
@@ -78,6 +78,9 @@ void setup() {
   client.setCallback(callback);
 }
 
+float level1 = 1.56;
+float level2 = 2.56;
+
 void loop() {
   if (!client.connected()) {
     reconnect();
@@ -85,18 +88,38 @@ void loop() {
   client.loop();
 
   long now = millis();
-  if (now - lastMsg > 5000) {
+  // Publica a cada 5 segundos
+  if (now - lastMsg > 5000) { 
     lastMsg = now;
-    ++value;
     
-    StaticJsonDocument<200> doc;
+    // 1. Alocação de Memória: 
+    // StaticJsonDocument<256> deve ser suficiente, mas você pode usar 300
+    // para segurança, dependendo de quantos itens no array você for ter.
+    StaticJsonDocument<300> doc; 
 
-    doc["water_level"] = random(100);
-    
-    char jsonBuffer[200];
-    serializeJson(doc, jsonBuffer); 
+    // 2. Criar o Array "buffer" no Objeto Raiz
+    JsonArray buffer = doc.createNestedArray("buffer");
 
-    Serial.print("Publishing JSON: ");
+    // 3. Adicionar o Primeiro Objeto ao Array
+    JsonObject item1 = buffer.createNestedObject();
+    item1["water_level"] = level1; // 1.56
+
+    // 4. Adicionar o Segundo Objeto ao Array
+    JsonObject item2 = buffer.createNestedObject();
+    item2["water_level"] = level2; // 2.56
+
+    // (Opcional: Simular mudança de dados)
+    level1 += 0.1;
+    level2 += 0.1;
+
+    // 5. Serializar o objeto (converter para string)
+    char jsonBuffer[300]; 
+    size_t n = serializeJson(doc, jsonBuffer); // 'n' é o tamanho da string JSON
+
+    // 6. Publicar a string JSON via MQTT
+    Serial.print("Publishing JSON (");
+    Serial.print(n);
+    Serial.print(" bytes): ");
     Serial.println(jsonBuffer);
     
     client.publish(publishTopic, jsonBuffer);
