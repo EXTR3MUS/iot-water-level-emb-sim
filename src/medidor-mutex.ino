@@ -148,7 +148,7 @@ void TaskSendBroker(void *pvParameters) {
             
             // 2. FORMAT DATA INTO JSON
             // We use a StaticJsonDocument large enough for two readings 
-            StaticJsonDocument<256> doc; 
+            StaticJsonDocument<512> doc; 
             
             JsonArray buffer_array = doc.createNestedArray("buffer");
             
