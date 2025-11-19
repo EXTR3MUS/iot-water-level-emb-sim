@@ -56,10 +56,10 @@ bool simulateSend(const char* json_payload);
 // ====================================================================
 bool simulateSend(const char* json_payload) {
     
-    // Serial.printf("[Broker] Attempting to send: %s\n", json_payload); // Verbose logging disabled
+    Serial.printf("[Broker] Attempting to send: %s\n", json_payload); // Verbose logging disabled
     
     // Simulate connection failure sometimes to test the buffer
-    if (rand() % 10 < 2) { // 20% chance of failure
+    if (rand() % 10 < 8) { // 40% chance of failure
         Serial.println("[Broker] FAILED to send data! Buffer will hold it.");
         return false;
     }
@@ -73,9 +73,10 @@ bool simulateSend(const char* json_payload) {
 // TASK 1: Read Sensor and Calculate Distance (PRODUCER)
 // ====================================================================
 void TaskReadSensor(void *pvParameters) {
-  const int NUM_SAMPLES = 100;
+  const int NUM_SAMPLES = 30;
   
   while (1) {
+    // Serial.printf("Task 1 start\n"); 
     g_raw_media = 0;
     
     // 1. COLLECT SAMPLES
@@ -87,7 +88,7 @@ void TaskReadSensor(void *pvParameters) {
         g_last_raw_dist = (float)measure.RangeMilliMeter;
       }
       g_raw_media += g_last_raw_dist;
-      vTaskDelay(pdMS_TO_TICKS(1)); 
+      // vTaskDelay(pdMS_TO_TICKS(1)); 
     }
 
     // 2. CALCULATE FINAL VALUE (in cm)
@@ -119,8 +120,8 @@ void TaskReadSensor(void *pvParameters) {
       xSemaphoreGive(xBufferMutex);
     }
     
-    // Wait for 5 seconds before the next reading cycle
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    // Wait for 0,5 seconds before the next reading cycle
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
@@ -130,6 +131,7 @@ void TaskReadSensor(void *pvParameters) {
 // ====================================================================
 void TaskSendBroker(void *pvParameters) {
     while(1) {
+        // Serial.printf("Task 2 start\m"); 
         // Local copies of state to safely work outside the mutex lock
         int readings_to_send_count = 0;
         int current_head = 0;
@@ -174,11 +176,11 @@ void TaskSendBroker(void *pvParameters) {
                 vTaskDelay(pdMS_TO_TICKS(100)); 
             } else {
                 // FAILURE: Keep items in buffer and wait longer before retrying
-                vTaskDelay(pdMS_TO_TICKS(5000)); // Wait 5 seconds before next send attempt
+                vTaskDelay(pdMS_TO_TICKS(1000)); // Wait 5 seconds before next send attempt
             }
         } else {
             // Buffer is empty, wait for the sensor task to produce data
-            vTaskDelay(pdMS_TO_TICKS(1000)); 
+            vTaskDelay(pdMS_TO_TICKS(100)); 
         }
     }
 }
@@ -202,6 +204,7 @@ void TaskDisplayLCD(void *pvParameters) {
   lcd.setCursor(0, 2); lcd.print("Buf: ");      // 5 characters (0-4)
 
   while (1) {
+    // Serial.printf("Task 3 start\n"); 
     // 1. READ SHARED DATA
     if (xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE) {
       display_dist = g_dist_corrected;
@@ -221,7 +224,7 @@ void TaskDisplayLCD(void *pvParameters) {
     sprintf(distStr, "%4.1f", display_dist);
     lcd.print(distStr);
     lcd.print("cm");     // Add unit
-    lcd.print("    ");   // Clear remaining space to the end of the line (col 15-19)
+    //lcd.print("    ");   // Clear remaining space to the end of the line (col 15-19)
 
     // 3. DISPLAY BUFFER STATUS (Line 2)
     // Start printing value at column 5 (after "Buf: ")
@@ -230,20 +233,20 @@ void TaskDisplayLCD(void *pvParameters) {
     // Format: "X/12"
     sprintf(bufStr, "%2d/%d ", display_buffer_count, MAX_BUFFER_SIZE);
     lcd.print(bufStr);
-    lcd.print("      "); // Clear remaining space
+    //lcd.print("      "); // Clear remaining space
 
     // 4. DISPLAY WARNING (Line 3)
     lcd.setCursor(0, 3);
     if (display_buffer_count >= MAX_BUFFER_SIZE * 0.8) {
-      lcd.print("!!! BUFFER CRITICAL !!!"); // 23 chars, needs to be <= 20
+      lcd.print("! BUFFER CRITICAL !"); // 23 chars, needs to be <= 20
     } else if (display_buffer_count > 0) {
-      lcd.print("--- SENDING PENDING --.");
+      lcd.print("- SENDING PENDING -");
     } else {
       lcd.print("                    "); // Clear warning line (20 spaces)
     }
 
     // Display update rate 
-    vTaskDelay(pdMS_TO_TICKS(500)); 
+    vTaskDelay(pdMS_TO_TICKS(100)); 
   }
 }
 
@@ -292,10 +295,7 @@ void setup() {
   Serial.println("All FreeRTOS Tasks started.");
 }
 
-// ====================================================================
-// ARDUINO LOOP FUNCTION
-// ====================================================================
 void loop() {
   // FreeRTOS manages all continuous tasks; the main loop does nothing.
-  vTaskDelay(pdMS_TO_TICKS(100)); 
+  // vTaskDelay(pdMS_TO_TICKS(10)); 
 }
