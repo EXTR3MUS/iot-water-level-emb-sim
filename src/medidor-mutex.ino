@@ -2,6 +2,11 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
+// Wifi
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <WiFiClient.h>
+
 // Sensor Library
 #include "Adafruit_VL53L0X.h"
 
@@ -15,6 +20,72 @@
 #define BAUD_RATE 115200
 #define JSON_DOC_SIZE 1536   // Sufficient size for 12 float objects in the JSON payload
 
+const char* ssid = "DNETWORK";
+const char* password = "tr45yujk"; 
+
+const char* mqtt_server = "10.165.109.140"; 
+const int mqtt_port = 1883;            
+
+const char* mqtt_user = "";
+const char* mqtt_pass = "";
+
+const char* publishTopic = "esp32/test/hello_world_001";
+const char* clientID = "ESP32-Client-UniqueID-1234"; 
+
+long lastMsg = 0;
+char msg[50];
+int value = 0;
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void setup_wifi();
+void reconnect();
+void callback(char* topic, byte* payload, unsigned int length);
+
+void setup_wifi() {
+  delay(10);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.println(topic);
+  Serial.print("Payload: ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    if (client.connect(clientID, mqtt_user, mqtt_pass)) { 
+      Serial.println("connected");
+      client.publish(publishTopic, "ESP32 is online!");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      delay(5000);
+    }
+  }
+}
 // --- DATA STRUCTURES ---
 
 // Structure to hold a single reading for the buffer
@@ -163,26 +234,30 @@ void TaskSendBroker(void *pvParameters) {
             serializeJson(doc, json_output);
 
             // 3. ATTEMPT TO SEND BATCH
-            if (simulateSend(json_output)) {
+            if (client.connected()) {
                 // SUCCESS: Remove all sent items from buffer (PROTECT WRITE/HEAD/COUNT)
+                client.loop();
                 if (xSemaphoreTake(xBufferMutex, portMAX_DELAY) == pdTRUE) {
                     // Advance the head by the total number of items sent
                     g_buffer_head = (g_buffer_head + readings_to_send_count) % MAX_BUFFER_SIZE;
                     g_current_buffer_count = 0; // Reset count
+                    client.publish(publishTopic, json_output);
                     Serial.printf("[Buffer] Batch of %d items sent and removed. Remaining: 0\n", readings_to_send_count);
                     xSemaphoreGive(xBufferMutex);
                 }
                 // Short delay before checking for new data
                 vTaskDelay(pdMS_TO_TICKS(100)); 
             } else {
+               reconnect();
                 // FAILURE: Keep items in buffer and wait longer before retrying
-                vTaskDelay(pdMS_TO_TICKS(1000)); // Wait 5 seconds before next send attempt
+                // vTaskDelay(pdMS_TO_TICKS(1000)); // Wait 5 seconds before next send attempt
             }
         } else {
             // Buffer is empty, wait for the sensor task to produce data
             vTaskDelay(pdMS_TO_TICKS(100)); 
         }
     }
+      
 }
 
 
@@ -257,7 +332,10 @@ void TaskDisplayLCD(void *pvParameters) {
 void setup() {
   Serial.begin(BAUD_RATE);
   srand(millis()); // Initialize random seed for simulation
-
+  setup_wifi();
+  client.setServer(mqtt_server, mqtt_port); 
+  client.setCallback(callback);
+  
   // 1. Initialize LCD
   lcd.init();
   lcd.backlight();
